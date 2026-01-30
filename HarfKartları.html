@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harf Kartları - Yönetici Modu</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            margin: 0; padding: 20px; 
+            min-height: 100vh; 
+            display: flex; align-items: center; justify-content: center; 
+        }
+        #main-menu, #game { 
+            max-width: 900px; margin: 0 auto; padding: 30px; 
+            background: white; border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2); text-align: center; position: relative;
+        }
+        #main-menu h1 { color: #333; font-size: 48px; margin-bottom: 10px; }
+        #main-menu .credit { color: #555; font-size: 18px; margin-bottom: 30px; }
+        button { 
+            padding: 12px 24px; font-size: 18px; margin: 8px; cursor: pointer; 
+            border: none; border-radius: 8px; color: white; font-weight: bold; 
+        }
+        .mode-btn { background: #4CAF50; }
+        .mode-btn:hover { background: #45a049; }
+        .settings-btn { background: #2196F3; }
+        #admin-access { 
+            position: absolute; bottom: 15px; right: 15px; 
+            font-size: 14px; color: #777; cursor: pointer; 
+            padding: 6px 12px; border: 1px solid #ccc; border-radius: 6px; 
+            background: rgba(255,255,255,0.7);
+        }
+        #admin-access:hover { background: #eee; }
+        #status { font-size: 22px; margin: 25px 0; padding: 15px; background: #f8f9fa; border-radius: 10px; font-weight: bold; }
+        .hand, .opponents { display: flex; flex-wrap: wrap; justify-content: center; margin: 20px 0; gap: 8px; }
+        .opponent { margin: 15px; min-width: 180px; text-align: center; }
+        .card { 
+            width: 80px; height: 110px; background: white; border: 3px solid #444; 
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; 
+            font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 8px rgba(0,0,0,0.2); 
+            transition: transform 0.15s;
+        }
+        .card:hover { transform: translateY(-4px); }
+        .played-card { 
+            width: 110px; height: 150px; font-size: 28px; margin: 20px auto; 
+            background: linear-gradient(45deg, #ffd700, #ffed4a); border-color: #d4a017; 
+        }
+        #player-hand .card { border-color: #0066ff; background: #e3f2fd; }
+        .ai-card { border-color: #cc0000; background: #ffebee; }
+        input[type="number"] { padding: 8px; font-size: 16px; margin: 10px; width: 70px; }
+        #admin-tools { 
+            position: absolute; top: 15px; left: 15px; 
+            background: rgba(0,0,0,0.7); color: white; padding: 10px; 
+            border-radius: 8px; font-size: 14px; display: none;
+        }
+        #admin-tools button { 
+            background: #e74c3c; margin: 5px; padding: 8px 16px; font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-menu">
+        <h1>🃏 Harf Kartları</h1>
+        <div class="credit">Yapımcı: MuFu_5</div>
+        <p>Aynı sayı veya aynı harf oynayabilirsin. Yoksa 2 kart çekersin.</p>
+        <label for="initial-hand">Başlangıç Kart Sayısı (7-13):</label>
+        <input type="number" id="initial-hand" min="7" max="13" value="7" oninput="this.value = Math.min(Math.max(this.value,7),13)">
+        <br><br>
+        <button class="mode-btn" onclick="startGame('1v1')">1 vs 1 (AI)</button>
+        <button class="mode-btn" onclick="startGame('4p')">4 Kişilik</button>
+        <br><br>
+        <button class="settings-btn" onclick="document.getElementById('settings').style.display='block'">Ayarlar</button>
+
+        <div id="admin-access" onclick="promptAdminPassword()">Yönetici Erişimi</div>
+    </div>
+
+    <!-- Ayarlar Modal -->
+    <div id="settings" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center;">
+        <div style="background:white; padding:40px; border-radius:16px; text-align:center;">
+            <h2>Ayarlar</h2>
+            <label style="font-size:20px; display:block; margin:20px 0;">
+                <input type="checkbox" id="music-toggle" checked onchange="toggleMusic()"> Rahatlatıcı Piano Jazz Müziği
+            </label>
+            <button onclick="document.getElementById('settings').style.display='none'" style="background:#e74c3c; padding:12px 24px;">Kapat</button>
+        </div>
+    </div>
+
+    <div id="game" style="display:none; position: relative;">
+        <h1>🃏 Kart Oyunu</h1>
+        <div class="credit">Yapımcı: MuFu_5</div>
+        <div id="admin-tools">
+            <button onclick="autoPlayAsAI()">AI Otomatik Oyna</button>
+            <button onclick="forceWin()">Kazanma Testi (Anında Kazan)</button>
+        </div>
+        <h2 id="status">Oyun başlıyor...</h2>
+
+        <h3>Ortadaki Kart</h3>
+        <div id="played-card" class="card played-card">?</div>
+
+        <h3>Senin Elin</h3>
+        <div id="player-hand" class="hand"></div>
+
+        <h3>Rakipler</h3>
+        <div id="opponents" class="opponents"></div>
+
+        <button id="draw-btn" disabled style="background:#f39c12;">2 Kart Çek</button>
+        <button onclick="location.reload()" style="background:#7f8c8d; margin-left:20px;">Ana Menüye Dön</button>
+    </div>
+
+    <!-- Müzik -->
+    <audio id="bg-music" loop>
+        <!-- Ücretsiz royalty-free piano jazz loop - Pixabay'dan örnek (doğrudan mp3 linki) -->
+        <!-- Gerçek link: Pixabay veya benzer siteden bir piano jazz loop indirip host et veya direkt kullan -->
+        <!-- Örnek link (çalışan bir tane bulup değiştir): -->
+        <source src="https://cdn.pixabay.com/download/audio/2022/05/25/audio_...mp3" type="audio/mpeg"> <!-- Gerçek link koy -->
+        <!-- Alternatif: Bensound The Jazz Piano (kendi hostuna yükle veya izinli link kullan) -->
+        Tarayıcın audio desteklemiyor.
+    </audio>
+
+    <script>
+        const suits = ['A','B','C','D'];
+        const numbers = Array.from({length:15},(_,i)=>i+1);
+
+        let players = [];
+        let playerIndex = 0;
+        let currentTurnIndex = 0;
+        let currentPlayed = null;
+        let gameOver = false;
+        let gameMode = '';
+        let handSize = 7;
+        let isAdmin = false;           // Yönetici modu aktif mi?
+
+        const music = document.getElementById('bg-music');
+        const musicToggle = document.getElementById('music-toggle');
+
+        function toggleMusic() {
+            if (musicToggle.checked) {
+                music.play().catch(e => console.log("Autoplay engellendi:", e));
+            } else {
+                music.pause();
+            }
+        }
+
+        document.body.addEventListener('click', () => {
+            if (musicToggle.checked) music.play().catch(() => {});
+        }, { once: true });
+
+        function promptAdminPassword() {
+            const password = prompt("Yönetici şifresini girin:");
+            if (password === "13E_administirator?.g") {
+                isAdmin = true;
+                alert("Yönetici erişimi aktif!\n- Rakiplerin kartları görünecek\n- Sol üstte ekstra butonlar aktif");
+                // Eğer oyun başladıysa admin tools göster
+                if (document.getElementById('game').style.display === 'block') {
+                    document.getElementById('admin-tools').style.display = 'block';
+                }
+            } else {
+                alert("Yanlış şifre!");
+            }
+        }
+
+        function drawRandomCard() {
+            const num = numbers[Math.floor(Math.random() * numbers.length)];
+            const suit = suits[Math.floor(Math.random() * suits.length)];
+            return { num, suit };
+        }
+
+        function startGame(mode) {
+            gameMode = mode;
+            handSize = parseInt(document.getElementById('initial-hand').value) || 7;
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            if (isAdmin) {
+                document.getElementById('admin-tools').style.display = 'block';
+            }
+            initGame();
+            if (musicToggle.checked) {
+                setTimeout(() => music.play().catch(() => {}), 500);
+            }
+        }
+
+        function initGame() {
+            players = [];
+            players.push({name:'Sen', hand:[], isYou:true});
+
+            let numAI = gameMode === '1v1' ? 1 : 3;
+            for (let i = 1; i <= numAI; i++) {
+                players.push({name:`AI-${i}`, hand:[], isYou:false});
+            }
+
+            players.forEach(p => {
+                for (let i = 0; i < handSize; i++) {
+                    p.hand.push(drawRandomCard());
+                }
+            });
+
+            currentPlayed = drawRandomCard();
+            currentTurnIndex = Math.floor(Math.random() * players.length);
+            gameOver = false;
+
+            renderAll();
+            runTurn();
+        }
+
+        function renderAll() {
+            renderPlayerHand();
+            renderOpponents();
+            renderPlayedCard();
+        }
+
+        function renderPlayerHand() {
+            const div = document.getElementById('player-hand');
+            div.innerHTML = '';
+            players[0].hand.forEach((card, i) => {
+                const c = document.createElement('div');
+                c.className = 'card';
+                c.textContent = `${card.num}${card.suit}`;
+                if (!gameOver && currentTurnIndex === 0) {
+                    c.onclick = () => tryPlayCard(i);
+                }
+                div.appendChild(c);
+            });
+        }
+
+        function renderOpponents() {
+            const container = document.getElementById('opponents');
+            container.innerHTML = '';
+            for (let i = 1; i < players.length; i++) {
+                const p = players[i];
+                const box = document.createElement('div');
+                box.className = 'opponent';
+                box.innerHTML = `<strong>${p.name}</strong><br><small>${p.hand.length} kart</small>`;
+                const cardsDiv = document.createElement('div');
+                cardsDiv.className = 'hand';
+                for (let k = 0; k < p.hand.length; k++) {
+                    const back = document.createElement('div');
+                    back.className = 'card ai-card';
+                    if (isAdmin) {
+                        // Yönetici modunda gerçek kart göster
+                        const card = p.hand[k];
+                        back.textContent = `${card.num}${card.suit}`;
+                        back.style.background = '#fffacd';
+                        back.style.borderColor = '#8b4513';
+                    } else {
+                        back.textContent = '?';
+                    }
+                    cardsDiv.appendChild(back);
+                }
+                box.appendChild(cardsDiv);
+                if (currentTurnIndex === i) {
+                    box.style.border = '3px solid #27ae60';
+                    box.style.background = 'rgba(39,174,96,0.1)';
+                    box.style.padding = '8px';
+                    box.style.borderRadius = '12px';
+                }
+                container.appendChild(box);
+            }
+        }
+
+        function renderPlayedCard() {
+            const el = document.getElementById('played-card');
+            el.textContent = currentPlayed ? `${currentPlayed.num}${currentPlayed.suit}` : '?';
+        }
+
+        function tryPlayCard(cardIndex) {
+            if (gameOver || currentTurnIndex !== 0) return;
+            const card = players[0].hand[cardIndex];
+            if (card.num === currentPlayed.num || card.suit === currentPlayed.suit) {
+                players[0].hand.splice(cardIndex, 1);
+                currentPlayed = card;
+                document.getElementById('draw-btn').disabled = true;
+                renderAll();
+                checkWin();
+                if (!gameOver) setTimeout(nextTurn, 800);
+            } else {
+                alert("Bu kart oynanamaz!\nAynı sayı veya aynı harf olmalı.");
+            }
+        }
+
+        function playerDraw() {
+            if (gameOver || currentTurnIndex !== 0) return;
+            players[0].hand.push(drawRandomCard());
+            players[0].hand.push(drawRandomCard());
+            renderAll();
+            setTimeout(nextTurn, 800);
+        }
+
+        function autoPlayAsAI() {
+            if (gameOver || currentTurnIndex !== 0) {
+                alert("Sıra sende değil veya oyun bitti!");
+                return;
+            }
+            // Senin sıranı AI gibi otomatik oynat
+            const playable = players[0].hand.filter(c => c.num === currentPlayed.num || c.suit === currentPlayed.suit);
+            if (playable.length > 0) {
+                const chosen = playable[Math.floor(Math.random() * playable.length)];
+                const idx = players[0].hand.indexOf(chosen);
+                players[0].hand.splice(idx, 1);
+                currentPlayed = chosen;
+                document.getElementById('status').textContent = `Otomatik oynandı: ${chosen.num}${chosen.suit}`;
+            } else {
+                players[0].hand.push(drawRandomCard());
+                players[0].hand.push(drawRandomCard());
+                document.getElementById('status').textContent = "Otomatik: 2 kart çekildi";
+            }
+            renderAll();
+            checkWin();
+            if (!gameOver) setTimeout(nextTurn, 1200);
+        }
+
+        function forceWin() {
+            if (gameOver) return;
+            // Seni kazanan yap: elini boşalt
+            players[0].hand = [];
+            renderAll();
+            checkWin();
+        }
+
+        function aiTurn() {
+            if (gameOver) return;
+            const ai = players[currentTurnIndex];
+            const playable = ai.hand.filter(c => c.num === currentPlayed.num || c.suit === currentPlayed.suit);
+            if (playable.length > 0) {
+                const chosen = playable[Math.floor(Math.random() * playable.length)];
+                const idx = ai.hand.indexOf(chosen);
+                ai.hand.splice(idx, 1);
+                currentPlayed = chosen;
+                document.getElementById('status').textContent = `${ai.name} oynadı: ${chosen.num}${chosen.suit}`;
+            } else {
+                ai.hand.push(drawRandomCard());
+                ai.hand.push(drawRandomCard());
+                document.getElementById('status').textContent = `${ai.name} 2 kart çekti`;
+            }
+            renderAll();
+            checkWin();
+            if (!gameOver) setTimeout(nextTurn, 1200);
+        }
+
+        function nextTurn() {
+            currentTurnIndex = (currentTurnIndex + 1) % players.length;
+            runTurn();
+        }
+
+        function runTurn() {
+            renderAll();
+            if (gameOver) return;
+            if (currentTurnIndex === 0) {
+                document.getElementById('status').textContent = "Sıra sende! Kart oyna veya 2 çek";
+                document.getElementById('draw-btn').disabled = false;
+            } else {
+                document.getElementById('status').textContent = `${players[currentTurnIndex].name} düşünüyor...`;
+                document.getElementById('draw-btn').disabled = true;
+                setTimeout(aiTurn, 900 + Math.random()*800);
+            }
+        }
+
+        function checkWin() {
+            for (let p of players) {
+                if (p.hand.length === 0) {
+                    let msg = p.isYou ? "Tebrikler! Sen kazandın!" : `${p.name} kazandı!`;
+                    document.getElementById('status').textContent = msg;
+                    gameOver = true;
+                    document.getElementById('draw-btn').disabled = true;
+                    music.pause();
+                    return;
+                }
+            }
+        }
+
+        document.getElementById('draw-btn').onclick = playerDraw;
+
+        // https://www.youtube.com/watch?v=MYPVQccHhAQ (Pixabay'dan indirip host et veya direkt link):
+        // Örnek: https://cdn.pixabay.com/download/audio/2023/10/xx/audio_...relaxing-piano-jazz.mp3
+    </script>
+</body>
+</html>
